@@ -1,0 +1,27 @@
+@use "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  html, body {
+    @apply h-full antialiased;
+    font-family: 'Sarabun', 'Segoe UI', sans-serif;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+
+  &:hover {
+    background: #94a3b8;
+  }
+}

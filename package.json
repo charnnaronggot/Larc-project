@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@primeuix/themes": "^2.0.3",
+    "angular-auth-oidc-client": "^21.0.1",
+    "lucide-angular": "^0.575.0",
+    "primeicons": "^7.0.0",
+    "primeng": "^21.1.1"
+  }
+}
