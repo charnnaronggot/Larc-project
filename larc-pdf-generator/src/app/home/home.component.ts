@@ -2,7 +2,8 @@ import { Component, signal, computed ,inject} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PdfGeneratorService } from '../services/pdf-generator.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { TableModule } from 'primeng/table';
+import {BarcodeService } from '../services/query/api/barcode.service';
+import { FormsModule } from '@angular/forms';
 // import { ImgBG} from '../../../assets/BG_Barcode.png';
 interface CsvRow {
   [key: string]: string;
@@ -11,24 +12,35 @@ interface CsvRow {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, TableModule],
+  imports: [CommonModule, FormsModule, ],
   template: `<!-- home.component.html -->
  
 <div class="flex gap-6 p-8 h-screen bg-slate-100 box-border overflow-hidden" style="background-image: url('assets/images/background.png')";>
 
   <!-- Left Panel: CSV Import & Preview -->
-  <div class="bg-white rounded-2xl border-2 border-slate-200 flex flex-col overflow-hidden transition-all duration-300 opacity-90"
-       [class]="isExpanded() ? 'flex-[3]' : 'flex-[1.5]'">
+  <div class="bg-white rounded-2xl border-2 border-slate-200 flex flex-col overflow-hidden transition-all duration-300 opacity-90 min-h-0"
+
+  [ngClass]="{
+    'flex-[7]': horizonState() === 'left',
+    'flex-[5]': horizonState() === 'split',
+    'flex-[3]': horizonState() === 'right'
+  }"
+>
     <!-- Header Buttons -->
     <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200 shrink-0" >
       <div class="flex gap-2" >
         <button
-          class="inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-blue-500 text-white hover:bg-blue-600"
-          (click)="toggleExpand()"
+          (click)="toggleHorizonState()"
+          [disabled]="!canGenerate() "
+          [class]="isGenerated() 
+            ? 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-blue-500 text-white '
+            : 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-slate-400 text-white hover:bg-slate-500'"
           [title]="isExpanded() ? 'ย่อขนาด' : 'ขยายขนาด'">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            @if (isExpanded()) {
+            <!-- @if (isExpanded() { -->
+            @if (isExpanded() && isGenerating()) {
+
               <polyline points="4 14 10 14 10 20"></polyline>
               <polyline points="20 10 14 10 14 4"></polyline>
               <line x1="14" y1="10" x2="21" y2="3"></line>
@@ -40,7 +52,16 @@ interface CsvRow {
               <line x1="3" y1="21" x2="10" y2="14"></line>
             }
           </svg>
-          <span>ย่อขยาย</span>
+
+            <span>
+              {{
+                horizonState() === 'left' ? 'ขยายซ้าย' :
+                horizonState() === 'split' ? 'เท่ากัน' :
+                'ขยายขวา'
+              }}
+            </span>
+
+
         </button>
         <button
           class="inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-red-500 text-white hover:bg-red-600"
@@ -53,12 +74,28 @@ interface CsvRow {
           </svg>
           <span>ลบเอกสาร</span>
         </button>
+        <button
+          *ngIf="selectedMode() === 'dynamic'"
+          [class]="enableDynamicPDF() 
+            ? 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-emerald-500 text-white hover:bg-emerald-600'
+            : 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-slate-400 text-white hover:bg-slate-500'"
+          (click)="toggleDynamicPDF()">
+          <span>{{ enableDynamicPDF() ? 'PDF: ON' : 'PDF: OFF' }}</span>
+        </button>
       </div>
+      <!-- <select
+        class="px-3 py-2 rounded-lg border border-slate-300 text-[13px] bg-white text-slate-700"
+        [ngModel]="selectedMode()"
+        (ngModelChange)="onModeChange($event)">
+        <option value="PPPP">PPPP</option>
+        <option value="POST">POST</option>
+        <option value="FRD">FRD</option>
+        </select> -->
       <button
         class="inline-flex items-center gap-1.5 px-5 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-blue-500 text-white hover:bg-blue-600 hover:-translate-y-px hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
         (click)="generatePdf()"
         
-        [disabled]="!canGenerate() || isGenerating()">
+        [disabled]="!canGenerate() || isGenerating() ">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -68,18 +105,50 @@ interface CsvRow {
         </svg>
         <span>{{ isGenerating() ? 'กำลังสร้าง...' : 'สร้าง PDF' }}</span>
       </button>
+
+
     </div>
     <!-- CSV Content Area -->
-    <div class="w-full flex flex-col my-auto max-h-[90%]"  [ngClass]="verticalState() === 'top' ? 'flex-[3]' : (verticalState() === 'split' ? 'flex-[1.5]' : 'flex-[1]')">
+    <div class="w-full flex flex-col min-h-0 h-full">
       <!-- Top Half: CSV Content -->
-       <div class="flex-1 flex flex-col border-b border-slate-200" >   
+      <div class="min-h-0 flex flex-col border-b border-slate-200 transition-all duration-300"
+      [ngClass]="verticalState() === 'top' ? 'flex-[6]' : (verticalState() === 'split' ? 'flex-[5]' : 'flex-[4]')" >   
                <div  (click)="toggleVerticalExpand()"
-          class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between cursor-pointer transition-all duration-200 hover:bg-slate-100">
-         <span class="text-[13px] font-medium text-slate-600">PDF Template:</span>
+          class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 cursor-pointer transition-all duration-200 hover:bg-slate-100">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span class="text-[13px] font-medium text-slate-600 shrink-0">CSV Template:</span>
+            @if (csvFile()?.name) {
+              <div class="flex items-center gap-2 text-[13px] font-medium text-blue-500 min-w-0">
+                <!-- <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg> -->
+                <span class="truncate">{{ csvFile()?.name }}</span>
+              </div>
+            }
+          </div>
+          <button
+              class="inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-slate-200 text-slate-700 hover:bg-slate-300"
+              (click)="$event.stopPropagation(); csvInput.click()">
+              <input
+                #csvInput
+                type="file"
+                accept=".csv"
+                (change)="onCsvFileSelect($event)"
+                hidden
+              />
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>{{ csvFile()?.name ? 'เปลี่ยน CSV' : 'อัปโหลด CSV' }}</span>
+            </button>
        </div>
-      <div class="flex-1 overflow-auto p-4">
-        @if (!hasCsv()) {
-         <!-- @if(false) { -->
+      <div class="flex-1 min-h-0 overflow-auto p-4">
+        <ng-container *ngIf="!hasCsv(); else csvPreview">
           <!-- Drop Zone -->
           <div
             class="border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-200 h-full w-full hover:border-blue-500 hover:bg-blue-500/[0.03]"
@@ -90,13 +159,7 @@ interface CsvRow {
             (dragleave)="onCsvDragLeave($event)"
             (drop)="onCsvDrop($event)"
             (click)="csvInput.click()">
-            <input
-              #csvInput
-              type="file"
-              accept=".csv"
-              (change)="onCsvFileSelect($event)"
-              hidden
-            />
+            <input #csvInput type="file" accept=".csv" (change)="onCsvFileSelect($event)" hidden />
             <div class="flex flex-col items-center gap-3 text-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
                 stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -108,123 +171,55 @@ interface CsvRow {
               <p class="text-[13px] text-slate-400 m-0">หรือคลิกเพื่อเลือกไฟล์</p>
             </div>
           </div>
-        } @else {
+        </ng-container>
+
+        <ng-template #csvPreview>
           <!-- CSV Preview Table -->
-          <div class=" flex flex-col">
-            <div class="flex items-center gap-2 py-2 mb-2 text-[13px] font-medium text-blue-500">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-              </svg>
-              <span>{{ csvFile()?.name }}</span>
-            </div>
-            <div class="flex-1 overflow-auto rounded-lg border border-slate-200">
-              <!-- <p-table [value]="csvRows()">
-                <ng-template pTemplate="header">
-                  <tr>
-                    @for (header of csvHeaders(); track header) {
-                      <th>{{ header }}</th>
-                    }
-                  </tr>
-                </ng-template>
+          <div class="flex flex-col min-h-0 h-full">
 
-                <ng-template pTemplate="body" let-row>
-                  <tr>
-                    @for (header of csvHeaders(); track header) {
-                      <td>{{ row[header] }}</td>
-                    }
-                  </tr>
-                </ng-template>
-              </p-table> -->
-          <!-- <table class="w-full border-collapse text-xs whitespace-nowrap">
-            <thead>
-              <tr>
-                <th class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">Column A</th>
-                <th class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">Column B</th>
-                <th class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">Column C</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="hover:bg-slate-50 last:[&>td]:border-b-0">
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 1</td>
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 2</td>
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 3</td>
-              </tr>
-              <tr class="hover:bg-slate-50 last:[&>td]:border-b-0">
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 4</td>
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 5</td>
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 6</td>
-              </tr>
-              <tr class="hover:bg-slate-50 last:[&>td]:border-b-0">
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 7</td>
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 8</td>
-                <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 9</td>
-              </tr>
-            </tbody>
-          </table>
-          <p-table class="w-full text-xs">
-  <ng-template pTemplate="header">
-    <tr>
-      <th class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">Column A</th>
-      <th class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">Column B</th>
-      <th class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">Column C</th>
-    </tr>
-  </ng-template>
-
-  <ng-template pTemplate="body">
-    <tr class="hover:bg-slate-50 last:[&>td]:border-b-0">
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 1</td>
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 2</td>
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 3</td>
-    </tr>
-    <tr class="hover:bg-slate-50 last:[&>td]:border-b-0">
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 4</td>
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 5</td>
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 6</td>
-    </tr>
-    <tr class="hover:bg-slate-50 last:[&>td]:border-b-0">
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 7</td>
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 8</td>
-      <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">Data 9</td>
-    </tr>
-  </ng-template>
-</p-table> -->
-              <table class="w-full border-collapse text-xs whitespace-nowrap">
+            <div class="flex-1 min-h-0 overflow-auto rounded-lg border border-slate-200">
+              <table class="w-full border-collapse text-xs">
                 <thead>
                   <tr>
-                    @for (header of csvHeaders(); track header) {
-                      <th class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">{{ header }}</th>
-                    }
+                    <th *ngFor="let header of csvHeaders()"
+                        class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 bg-slate-50 font-semibold text-slate-800 sticky top-0 z-[1]">
+                      {{ header }}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  @for (row of csvRows(); track $index) {
-                    <tr class="hover:bg-slate-50 last:[&>td]:border-b-0">
-                      @for (header of csvHeaders(); track header) {
-                        <td class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500">{{ row[header] }}</td>
-                      }
-                    </tr>
-                  }
+                  <tr *ngFor="let row of csvRows()" class="hover:bg-slate-50">
+                    <td *ngFor="let header of csvHeaders()"
+                        class="px-3 py-2 text-left border-b border-r border-slate-200 last:border-r-0 text-slate-500 whitespace-nowrap">
+                      {{ row[header] }}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
-        }
+        </ng-template>
       </div>
 
        </div>
 
     <div
-  class="border-t border-slate-200 flex flex-col transition-all duration-300"
-  [ngClass]="verticalState() === 'bottom' ? 'flex-[3]' : (verticalState() === 'split' ? 'flex-[1.5]' : 'flex-[1]')">
-        <!-- PDF Template Upload -->
-        <div class="px-4 py-3 bg-slate-50"  (click)="toggleVerticalExpand()" >
-          <div class="flex items-center justify-between">
-            <span class="text-[13px] font-medium text-slate-600"  >CSV Template:</span>
+  class="border-t border-slate-200 flex flex-col min-h-0 transition-all duration-300" *ngIf="enableDynamicPDF()" 
+  [ngClass]="verticalState() === 'bottom' ? 'flex-[6]' : (verticalState() === 'split' ? 'flex-[5]' : 'flex-[4]')">
+        <!-- CSV Template Upload -->
+        <div class="px-4 py-3 bg-slate-50" (click)="toggleVerticalExpand()" >
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span class="text-[13px] font-medium text-slate-600 shrink-0">PDF Template:</span>
+              @if (pdfFile()?.name) {
+                <div class="flex items-center gap-2 text-[13px] font-medium text-blue-500 min-w-0">
+                  <span class="truncate">{{ pdfFile()?.name }}</span>
+                </div>
+              }
+            </div>
             <button
               class="inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-slate-200 text-slate-700 hover:bg-slate-300"
-              (click)="pdfInput3.click()">
+              (click)="$event.stopPropagation(); pdfInput3.click()">
               <input
                 #pdfInput3
                 type="file"
@@ -241,34 +236,63 @@ interface CsvRow {
               <span>{{ pdfFile()?.name ? 'เปลี่ยน PDF' : 'อัปโหลด PDF' }}</span>
             </button>
           </div>
-          @if (pdfFile()?.name) {
+          <!-- @if (pdfFile()?.name) {
             <div class="mt-2 text-[12px] text-slate-500 truncate">{{ pdfFile()?.name }}</div>
-          }
+          } -->
         </div>
 
         <!-- PDF Preview -->
-        <div class="flex-1 px-4 py-3 bg-blue-50 overflow-auto">
-          @if (pdfFile()?.name) {
-            @if (isVerticalExpanded()) {
-              <div class="flex items-center gap-2 text-[13px] text-blue-600 mb-2">
-                <span class="font-medium">{{ pdfFile()?.name }}</span>
-              </div>
-            }
-            <div class="flex-1 p-2 bg-white rounded border border-slate-200 min-h-0 h-full">
-              <iframe 
-                [src]="getPdfUrl()" 
-                class="w-full h-full rounded"
-                frameborder="0">
-              </iframe>
-            </div>
-          }
+        <div class="flex-1 px-4 py-3 bg-blue-50 overflow-auto"
+     (dragover)="onPdfDragOver($event)"
+     (dragleave)="onPdfDragLeave($event)"
+     (drop)="onPdfDrop($event)">
+    <ng-container *ngIf="!pdfFile(); else pdfPreview">
+      <!-- PDF Drop Zone -->
+      <div
+        class="border-2 border-dashed border-blue-200 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-200 h-full w-full hover:border-blue-500 hover:bg-blue-500/[0.05]"
+        [class.border-blue-500]="isDraggingPdf()"
+        [class.bg-blue-500/[0.05]]="isDraggingPdf()"
+        [class.border-[3px]]="isDraggingPdf()"
+        (click)="pdfInput3.click()">
+        <div class="flex flex-col items-center gap-3 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+            stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p class="text-base font-semibold text-slate-800 m-0">ลากไฟล์ PDF มาวางที่นี่</p>
+          <p class="text-[13px] text-slate-400 m-0">หรือคลิกเพื่อเลือกไฟล์</p>
         </div>
+      </div>
+    </ng-container>
+
+    <ng-template #pdfPreview>
+      <div class="flex-1 p-2 bg-white rounded border border-slate-200 min-h-0 h-full">
+        <iframe
+          [src]="getPdfUrl()"
+          class="w-full h-full rounded"
+          frameborder="0">
+        </iframe>
+      </div>
+    </ng-template>
+  </div>
       </div>
     </div>
   </div>
 
   <!-- Right Panel: PDF Upload -->
-  <div class="flex-1 bg-white rounded-2xl border-2 border-slate-200 flex flex-col overflow-hidden transition-all duration-300" *ngIf="isGenerating() || isGenerated()">
+
+<div
+  class="bg-white rounded-2xl border-2 border-slate-200 flex flex-col transition-all duration-300"
+  *ngIf="isGenerating() || isGenerated()"
+  [ngClass]="{
+    'flex-[3]': horizonState() === 'left',
+    'flex-[5]': horizonState() === 'split',
+    'flex-[7]': horizonState() === 'right'
+  }"
+>
+
     <div class="flex-1 overflow-auto p-4 flex items-center justify-center">
       @if (!isGenerated()) {
         <!-- Upload UI -->
@@ -278,14 +302,8 @@ interface CsvRow {
           (dragover)="onPdfDragOver($event)"
           (dragleave)="onPdfDragLeave($event)"
           (drop)="onPdfDrop($event)"
-          (click)="pdfInput.click()">
-          <input
-            #pdfInput
-            type="file"
-            accept=".pdf"
-            (change)="onPdfFileSelect($event)"
-            hidden
-          />
+          >
+
           <div class="flex flex-col items-center gap-3 text-center">
             <div class="relative flex items-center justify-center w-20 h-20 bg-red-50 rounded-full mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
@@ -295,16 +313,18 @@ interface CsvRow {
               </svg>
               <span class="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">PDF</span>
             </div>
-            <p class="text-base font-semibold text-slate-800 m-0">ยังไม่มีไฟล์ PDF</p>
-            <p class="text-[13px] text-slate-400 m-0 leading-relaxed">กรุณาอัปโหลด PDF Template<br />เพื่อเริ่มการสร้างเอกสาร</p>
+            <!-- <p class="text-base font-semibold text-slate-800 m-0">ยังไม่มีไฟล์ PDF</p>
+            <p class="text-[13px] text-slate-400 m-0 leading-relaxed">กรุณาอัปโหลด PDF Template<br />เพื่อเริ่มการสร้างเอกสาร</p> -->
           </div>
         </div>
       } @else {
       <div class="w-full h-full flex flex-col">
         <!-- <div class="mb-2 text-[13px] text-slate-600">Generated PDF:</div> -->
         <div class="flex-1 bg-white rounded border border-slate-200 min-h-0">
+          
           <iframe
-            [src]="getPdfUrl()"
+            *ngIf="isGenerated()"
+            [src]="getPreviewPdf()"
             class="w-full h-full rounded"
             frameborder="0">
           </iframe>
@@ -342,6 +362,8 @@ interface CsvRow {
 })
 export class HomeComponent {
 
+  private readonly barcodeService = inject(BarcodeService);
+  enableDynamicPDF = signal(false);
   backgroundImage = signal<string>('../../assets/images/background2.png');
   safeBackgroundImage: SafeResourceUrl | null = null;
 
@@ -366,12 +388,30 @@ export class HomeComponent {
   isGenerated = signal(false);
   sourcePdfUrl = signal<string | null>(null);
   previewPdfUrl = signal<string | null>(null);
+  // previewFile = signal<File | null>(null);
   verticalState = signal<'top' | 'split' | 'bottom'>('split');
 
   // Computed
   hasCsv = computed(() => this.csvFile() !== null);
   hasPdf = computed(() => this.pdfFile() !== null);
-  canGenerate = computed(() => this.hasCsv() && this.hasPdf());
+  // canGenerate = computed(() => this.hasCsv() && this.hasPdf());
+  canGenerate = computed(() => this.hasCsv() ); 
+
+ horizonState = signal<'left' | 'split' | 'right'>('split');
+
+  // setLeft() { this.horizonState = 'left'; }
+  // setSplit() { this.horizonState = 'split'; }
+  // setRight() { this.horizonState = 'right'; }
+
+  modeOptions = ['dynamic', 'data'] as const;
+  selectedMode = signal<'dynamic' | 'data'>('dynamic');
+  onModeChange(mode: 'dynamic' | 'data'): void {
+  this.selectedMode.set(mode);
+
+  }
+  // if (mode === 'data') {
+  // this.enableDynamicPDF.set(false);
+  // }
   private pdfBlobUrl: string | null = null;
   private previewPdfBlobUrl: string | null = null;
   private readonly sanitizer = inject(DomSanitizer);
@@ -511,7 +551,10 @@ getPdfUrl(): SafeResourceUrl {
   if (!this.pdfFile()) return '';
   return this.sanitizer.bypassSecurityTrustResourceUrl(URL.createObjectURL(this.pdfFile()!));
 }
-
+getPreviewPdf(): SafeResourceUrl {
+  if (!this.safePdfUrl) return '';
+  return this.safePdfUrl;
+}
 
 onPdfFileSelect(event: Event): void {
   const file = (event.target as HTMLInputElement).files?.[0];
@@ -527,8 +570,17 @@ onPdfFileSelect(event: Event): void {
     if (url) URL.revokeObjectURL(url);
   }
   // === Actions ===
-  toggleExpand(): void {
-    this.isExpanded.update((v) => !v);
+
+  toggleHorizonState(): void {
+    this.horizonState.update(state =>
+      state === 'left'
+        ? 'split'
+        : state === 'split'
+        ? 'right'
+        : 'left'
+    );
+
+    console.log('Horizon state:', this.horizonState());
   }
 
   toggleVerticalExpand(): void {
@@ -536,7 +588,14 @@ onPdfFileSelect(event: Event): void {
       v === 'top' ? 'split' : v === 'split' ? 'bottom' : 'top'
     );
   }
+toggleDynamicPDF(): void {
+  console.log('Toggling Dynamic PDF:', !this.enableDynamicPDF());
+  this.enableDynamicPDF.update(v => !v);
+}
 
+  //   toggleDynamicPDF() {
+  //   this.enableDynamicPDF.update(current => !current); // Updates the state reactively
+  // }
   deleteDocument(): void {
     console.log('Deleting document...');
     this.csvFile.set(null);
@@ -554,30 +613,41 @@ onPdfFileSelect(event: Event): void {
   generatePdf(): void {
     if (!this.canGenerate()) return;
 
-  this.isGenerating.set(true);
-    const csvFile = this.csvFile()!;
-    const pdfFile = this.pdfFile()!;
+    this.isGenerating.set(true);
+      const csvFile = this.csvFile()!;
+      const pdfFile = this.pdfFile()!;
+      if(this.enableDynamicPDF()){
+      this.barcodeService.barcodePreviewFormPost(pdfFile, csvFile , 16).subscribe({
+        next: (blob: any) => {
+          const url = URL.createObjectURL(blob);
+          this.previewPdfUrl.set(url);
+          this.safePreviewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+          this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+          this.isGenerated.set(true);
+          this.isGenerating.set(false);
+          // const a = document.createElement('a');
+          // a.href = url;
+          // a.download = 'generated-output.pdf';
+          // a.click();
+        }
+      });
+    }else  {
+      this.barcodeService.barcodeGeneratePdfPost(csvFile).subscribe({
+        next: (blob: any) => {
+          const url = URL.createObjectURL(blob);
+          this.previewPdfUrl.set(url);
+          this.safePreviewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+          this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+          this.isGenerating.set(false);
+          this.isGenerated.set(true);
+        },
+        error: (err) => {
+          console.error('Error generating PDF:', err);
+          this.isGenerating.set(false);
+        }
+      });
 
-    this.pdfService.generatePdf(csvFile, pdfFile).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        this.previewPdfUrl.set(url);
-        this.safePreviewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
-        this.isGenerating.set(false);
-        this.isGenerated.set(true);
+    }
 
-
-        // Auto download
-        // const a = document.createElement('a');
-        // a.href = url;
-        // a.download = 'generated-output.pdf';
-        // a.click();
-      },
-      error: (err) => {
-        console.error('Error generating PDF:', err);
-        this.isGenerating.set(false);
-        alert('เกิดข้อผิดพลาดในการสร้าง PDF กรุณาลองใหม่อีกครั้ง');
-      },
-    });
   }
 }

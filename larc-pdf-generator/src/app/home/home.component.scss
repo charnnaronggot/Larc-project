@@ -1,1 +1,93 @@
-/* Tailwind classes used inline */
+// :host ::ng-deep .dynamic-pdf-toggle .p-button {
+//   background: #4CCB8A !important;
+//   border-color: #cbd5e1 !important;
+//   color: #334155 !important;
+// }
+
+// :host ::ng-deep .dynamic-pdf-toggle .p-button:hover {
+//   background: #4CCB8A !important;
+// }
+
+// :host ::ng-deep .dynamic-pdf-toggle.p-highlight .p-button {
+//   background: purple !important;
+//   border-color: #047857 !important;
+//   color: #ffffff !important;
+// }
+
+// :host ::ng-deep .dynamic-pdf-toggle.p-highlight .p-button:hover {
+//   background: yellow !important;
+// }
+
+// .p-togglebutton.p-togglebutton-checked {
+//     background-color:  red !important;
+//     border-color: blue !important;
+//     color: #ffffff !important;
+// }
+// .p-togglebutton-checked .p-togglebutton-content  {
+//     background: green !important;
+//     box-shadow: var(--p-togglebutton-content-checked-shadow) !important;
+// }
+
+:host ::ng-deep .dynamic-pdf-toggle {
+  /* Off State */
+  --p-togglebutton-content-background: #e2e8f0;      /* slate-200 */
+  --p-togglebutton-content-border-color: #cbd5e1;/* slate-300 */
+  --p-togglebutton-content-color: #334155;           /* slate-700 */
+  --p-togglebutton-content-hover-background: #cbd5e1;/* slate-300 */
+
+  /* On State */
+  --p-togglebutton-content-checked-background: #10b981;      /* emerald-500 */
+  --p-togglebutton-content-checked-border-color: #059669;    /* emerald-600 */
+  --p-togglebutton-content-checked-color: #ffffff;
+  --p-togglebutton-content-checked-hover-background: #34d399;/* emerald-400 */
+}
+
+:host ::ng-deep.p-togglebutton.p-togglebutton-checked {
+    background: #10b981 !important;
+    border-color: var(--p-togglebutton-checked-border-color);
+    color: var(--p-togglebutton-checked-color);
+}
+:host ::ng-deep .dynamic-pdf-toggle {
+  --p-togglebutton-content-background: #e2e8f0;
+  --p-togglebutton-content-color: #334155;
+  --p-togglebutton-content-checked-background: #10b981;
+  --p-togglebutton-content-checked-color: #ffffff;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle {
+  border-color: #cbd5e1 !important;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle .p-togglebutton-content {
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle:hover {
+  background: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle:hover .p-togglebutton-content {
+  background: #cbd5e1 !important;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle.p-togglebutton-checked {
+  background: #10b981 !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle.p-togglebutton-checked .p-togglebutton-content {
+  background: #10b981 !important;
+  color: #ffffff !important;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle.p-togglebutton-checked:hover {
+  background: #34d399 !important;
+  border-color: #047857 !important;
+}
+
+:host ::ng-deep .dynamic-pdf-toggle.p-togglebutton-checked:hover .p-togglebutton-content {
+  background: #34d399 !important;
+}
