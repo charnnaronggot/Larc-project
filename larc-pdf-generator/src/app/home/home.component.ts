@@ -4,6 +4,7 @@ import { PdfGeneratorService } from '../services/pdf-generator.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {BarcodeService } from '../services/query/api/barcode.service';
 import { FormsModule } from '@angular/forms';
+import * as XLSX from 'xlsx';
 // import { ImgBG} from '../../../assets/BG_Barcode.png';
 interface CsvRow {
   [key: string]: string;
@@ -15,7 +16,7 @@ interface CsvRow {
   imports: [CommonModule, FormsModule, ],
   template: `<!-- home.component.html -->
  
-<div class="flex gap-6 p-8 h-screen bg-slate-100 box-border overflow-hidden" style="background-image: url('assets/images/background.png')";>
+<div class="flex gap-6 p-8 min-h-screen bg-slate-100 box-border overflow-hidden bg-cover bg-center bg-no-repeat" style="background-image: url('assets/images/background4.png')";>
 
   <!-- Left Panel: CSV Import & Preview -->
   <div class="bg-white rounded-2xl border-2 border-slate-200 flex flex-col overflow-hidden transition-all duration-300 opacity-90 min-h-0"
@@ -33,10 +34,13 @@ interface CsvRow {
           (click)="toggleHorizonState()"
           [disabled]="!canGenerate() "
           [class]="isGenerated() 
-            ? 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-blue-500 text-white '
-            : 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-slate-400 text-white hover:bg-slate-500'"
-          [title]="isExpanded() ? 'ย่อขนาด' : 'ขยายขนาด'">
+            ? 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-blue-500 text-white  '
+            : 'inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-slate-400 text-white hover:bg-slate-500 disabled:cursor-not-allowed disabled:hover:bg-slate-400'"
+          [title]="isExpanded() ? 'ย่อขนาด' : 'ขยายขนาด'"
+          
+          >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          *ngIf="!hideIcon()"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <!-- @if (isExpanded() { -->
             @if (isExpanded() && isGenerating()) {
@@ -67,6 +71,7 @@ interface CsvRow {
           class="inline-flex items-center gap-1.5 px-4 py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-200 bg-red-500 text-white hover:bg-red-600"
           (click)="deleteDocument()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          *ngIf="!hideIcon()"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="15" y1="9" x2="9" y2="15"></line>
@@ -97,6 +102,7 @@ interface CsvRow {
         
         [disabled]="!canGenerate() || isGenerating() ">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          *ngIf="!hideIcon()"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
           <polyline points="14 2 14 8 20 8"></polyline>
@@ -113,7 +119,7 @@ interface CsvRow {
       <!-- Top Half: CSV Content -->
       <div class="min-h-0 flex flex-col border-b border-slate-200 transition-all duration-300"
       [ngClass]="verticalState() === 'top' ? 'flex-[6]' : (verticalState() === 'split' ? 'flex-[5]' : 'flex-[4]')" >   
-               <div  (click)="toggleVerticalExpand()"
+        <div  (click)="toggleVerticalExpand()"
           class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 cursor-pointer transition-all duration-200 hover:bg-slate-100">
           <div class="flex items-center gap-2 min-w-0 flex-1">
             <span class="text-[13px] font-medium text-slate-600 shrink-0">CSV Template:</span>
@@ -134,8 +140,8 @@ interface CsvRow {
               <input
                 #csvInput
                 type="file"
-                accept=".csv"
-                (change)="onCsvFileSelect($event)"
+                accept=".csv,.xlsx,.xls"
+                (change)="onFileSelect($event)"
                 hidden
               />
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -159,7 +165,7 @@ interface CsvRow {
             (dragleave)="onCsvDragLeave($event)"
             (drop)="onCsvDrop($event)"
             (click)="csvInput.click()">
-            <input #csvInput type="file" accept=".csv" (change)="onCsvFileSelect($event)" hidden />
+            <input #csvInput type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelect($event)" hidden />
             <div class="flex flex-col items-center gap-3 text-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
                 stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -398,7 +404,7 @@ export class HomeComponent {
   canGenerate = computed(() => this.hasCsv() ); 
 
  horizonState = signal<'left' | 'split' | 'right'>('split');
-
+hideIcon = computed(() => this.horizonState() === 'right');
   // setLeft() { this.horizonState = 'left'; }
   // setSplit() { this.horizonState = 'split'; }
   // setRight() { this.horizonState = 'right'; }
@@ -459,12 +465,23 @@ export class HomeComponent {
     }
   }
 
-  onCsvFileSelect(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.processCsvFile(input.files[0]);
-    }
+
+onFileSelect(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  if (!input.files || input.files.length === 0) return;
+
+  const file = input.files[0];
+
+  if (file.name.endsWith('.csv')) {
+    this.processCsvFile(file);
   }
+  else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    this.processExcelFile(file);
+  }
+  console.log('------ header :', this.csvHeaders());
+  console.log('------ rows :', this.csvRows());
+}
+
 
   private processCsvFile(file: File): void {
     this.csvFile.set(file);
@@ -519,6 +536,45 @@ export class HomeComponent {
     }
     result.push(current.trim());
     return result;
+  }
+
+  private processExcelFile(file: File): void {
+    this.csvFile.set(file);
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      // ใช้ Sheet แรก
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      // แปลงเป็น array of objects
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
+        defval: ''
+      });
+
+      if (jsonData.length === 0) return;
+
+      // headers
+      const headers = Object.keys(jsonData[0]);
+      this.csvHeaders.set(headers);
+
+      // rows
+      const rows = jsonData.map(row => {
+        const normalized: CsvRow = {};
+        headers.forEach(h => {
+          normalized[h] = String(row[h] ?? '');
+        });
+        return normalized;
+      });
+
+      this.csvRows.set(rows);
+    };
+
+    reader.readAsArrayBuffer(file);
   }
 
   // === PDF Drag & Drop ===
