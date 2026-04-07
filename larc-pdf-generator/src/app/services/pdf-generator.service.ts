@@ -10,15 +10,16 @@ export class PdfGeneratorService {
 
   constructor(private http: HttpClient) {}
 
-  generatePdf(csvFile: File, pdfFile: File): Observable<Blob> {
+  generatePdf(csvFile: File, pdfFile?: File, fontSize = 16): Observable<Blob> {
     const formData = new FormData();
-    formData.append('PdfFile', pdfFile, pdfFile.name);
-    formData.append('Data', csvFile, csvFile.name);
-    formData.append('FontSize', '14');
+    if (pdfFile) {
+      formData.append('pdfFile', pdfFile, pdfFile.name);
+    }
+    formData.append('data', csvFile, csvFile.name);
+    formData.append('fontSize', String(fontSize));
 
-
-    return this.http.post('http://localhost:5000/api/pdf/preview-form', formData, {
-      responseType: 'blob',
+    return this.http.post<Blob>('http://localhost:3000/api/pdf/preview-form', formData, {
+      responseType: 'blob' as 'json',
     });
   }
 }
