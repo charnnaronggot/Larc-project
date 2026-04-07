@@ -147,14 +147,15 @@ export class DefaultService extends BaseService {
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      */
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: undefined, context?: HttpContext, transferCache?: boolean}): Observable<any>;
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: undefined, context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: undefined, context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: undefined, context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/pdf'
         ]);
         if (localVarHttpHeaderAcceptSelected !== undefined) {
             localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
