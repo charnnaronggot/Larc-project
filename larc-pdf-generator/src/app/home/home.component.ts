@@ -2,7 +2,7 @@ import { Component, signal, computed ,inject} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PdfGeneratorService } from '../services/pdf-generator.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import {BarcodeService } from '../services/query/api/barcode.service';
+import { DefaultService } from '../services/query';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 // import { ImgBG} from '../../../assets/BG_Barcode.png';
@@ -368,7 +368,7 @@ interface CsvRow {
 })
 export class HomeComponent {
 
-  private readonly barcodeService = inject(BarcodeService);
+  private readonly defaultService = inject(DefaultService);
   enableDynamicPDF = signal(false);
   backgroundImage = signal<string>('../../assets/images/background2.png');
   safeBackgroundImage: SafeResourceUrl | null = null;
@@ -400,8 +400,7 @@ export class HomeComponent {
   // Computed
   hasCsv = computed(() => this.csvFile() !== null);
   hasPdf = computed(() => this.pdfFile() !== null);
-  // canGenerate = computed(() => this.hasCsv() && this.hasPdf());
-  canGenerate = computed(() => this.hasCsv() ); 
+  canGenerate = computed(() => this.hasCsv() && (!this.enableDynamicPDF() || this.hasPdf())); 
 
  horizonState = signal<'left' | 'split' | 'right'>('split');
 hideIcon = computed(() => this.horizonState() === 'right');
@@ -671,9 +670,8 @@ toggleDynamicPDF(): void {
 
     this.isGenerating.set(true);
       const csvFile = this.csvFile()!;
-      const pdfFile = this.pdfFile()!;
-      if(this.enableDynamicPDF()){
-      this.barcodeService.barcodePreviewFormPost(pdfFile, csvFile , 16).subscribe({
+      const pdfFile = this.pdfFile() ?? undefined;
+      this.defaultService.apiPdfPreviewFormPost(pdfFile, csvFile , 16).subscribe({
         next: (blob: any) => {
           const url = URL.createObjectURL(blob);
           this.previewPdfUrl.set(url);
@@ -685,25 +683,12 @@ toggleDynamicPDF(): void {
           // a.href = url;
           // a.download = 'generated-output.pdf';
           // a.click();
-        }
-      });
-    }else  {
-      this.barcodeService.barcodeGeneratePdfPost(csvFile).subscribe({
-        next: (blob: any) => {
-          const url = URL.createObjectURL(blob);
-          this.previewPdfUrl.set(url);
-          this.safePreviewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
-          this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
-          this.isGenerating.set(false);
-          this.isGenerated.set(true);
         },
         error: (err) => {
-          console.error('Error generating PDF:', err);
+          console.error('Generate PDF failed:', err);
           this.isGenerating.set(false);
-        }
+          this.isGenerated.set(false);
+        },
       });
-
-    }
-
   }
 }

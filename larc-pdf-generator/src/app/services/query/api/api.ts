@@ -1,3 +1,3 @@
-export * from './barcode.service';
-import { BarcodeService } from './barcode.service';
-export const APIS = [BarcodeService];
+export * from './default.service';
+import { DefaultService } from './default.service';
+export const APIS = [DefaultService];
