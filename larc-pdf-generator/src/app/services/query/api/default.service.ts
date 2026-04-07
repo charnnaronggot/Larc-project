@@ -147,10 +147,10 @@ export class DefaultService extends BaseService {
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      */
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<any>;
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
-    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: string, context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/pdf', context?: HttpContext, transferCache?: boolean}): Observable<Blob>;
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/pdf', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Blob>>;
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/pdf', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Blob>>;
+    public apiPdfPreviewFormPost(pdfFile?: Blob, data?: Blob, fontSize?: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/pdf', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -197,24 +197,13 @@ export class DefaultService extends BaseService {
             localVarFormParams = localVarFormParams.append('fontSize', <any>fontSize) as any || localVarFormParams;
         }
 
-        let responseType_: 'text' | 'json' | 'blob' = 'json';
-        if (localVarHttpHeaderAcceptSelected) {
-            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
-                responseType_ = 'text';
-            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
-                responseType_ = 'json';
-            } else {
-                responseType_ = 'blob';
-            }
-        }
-
         let localVarPath = `/api/pdf/preview-form`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<any>('post', `${basePath}${localVarPath}`,
+        return this.httpClient.request('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 body: localVarConvertFormParamsToString ? localVarFormParams.toString() : localVarFormParams,
-                responseType: <any>responseType_,
+                responseType: "blob",
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
                 observe: observe,

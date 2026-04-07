@@ -23,7 +23,7 @@ export const loadPreferredFont = async (
     .readdirSync(fontsDir)
     .filter((name) => FONT_EXTENSIONS.has(path.extname(name).toLowerCase()))
     .sort(compareFonts);
-
+  console.log(`Found ${candidates.length} font candidates in "${fontsDir}":`, candidates);
   for (const fileName of candidates) {
     const fullPath = path.join(fontsDir, fileName);
     const bytes = fs.readFileSync(fullPath);

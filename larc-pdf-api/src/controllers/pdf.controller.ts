@@ -85,6 +85,11 @@ const previewBodySchema = z.object({
  *     responses:
  *       200:
  *         description: Generated PDF
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
  */
 
 export const createPdfRouter = (settings: AppSettings): Router => {
@@ -189,7 +194,7 @@ export const createPdfRouter = (settings: AppSettings): Router => {
         const parsedBody = previewBodySchema.parse(req.body);
         const fontSize = parsedBody.fontSize ?? settings.defaultFontSize;
         const rows = parseDataFile(dataFile);
-
+        console.log(`Parsed ${rows.length} rows from data file.` , rows);
         const result = await pdfService.createPreviewPdf({
           templateBuffer: pdfFile.buffer,
           rows,

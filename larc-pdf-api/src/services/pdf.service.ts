@@ -40,6 +40,15 @@ const isTruthy = (value: unknown): boolean => {
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'y';
 };
 
+const containsNonLatinText = (value: string): boolean => {
+  for (const char of value) {
+    if (char.charCodeAt(0) > 0xff) {
+      return true;
+    }
+  }
+  return false;
+};
+
 export class PdfService {
   public async getMetadata(filePath: string): Promise<PdfMetadata> {
     const bytes = fs.readFileSync(filePath);
@@ -95,6 +104,12 @@ export class PdfService {
 
     const form = pdfDoc.getForm();
     const fields = form.getFields();
+    const preferredFont = await loadPreferredFont(pdfDoc, options.fontsDir);
+
+    if (preferredFont) {
+      // Prime appearances with unicode-capable font to avoid WinAnsi fallback.
+      form.updateFieldAppearances(preferredFont);
+    }
 
     for (const field of fields) {
       const fieldName = field.getName();
@@ -104,7 +119,22 @@ export class PdfService {
 
       const value = options.row[fieldName];
       if (field instanceof PDFTextField) {
-        field.setText(toText(value));
+        const textValue = toText(value);
+        if (!preferredFont && containsNonLatinText(textValue)) {
+          throw new AppError(
+            `Field "${fieldName}" contains non-Latin text but no Unicode font could be loaded from ${options.fontsDir}.`,
+            400
+          );
+        }
+
+        const maxLength = field.getMaxLength();
+
+        if (typeof maxLength === 'number' && maxLength >= 0 && textValue.length > maxLength) {
+          field.setText(textValue.slice(0, maxLength));
+        } else {
+          field.setText(textValue);
+        }
+        field.setFontSize(options.fontSize);
       } else if (field instanceof PDFCheckBox) {
         if (isTruthy(value)) {
           field.check();
@@ -112,21 +142,18 @@ export class PdfService {
           field.uncheck();
         }
       } else if (field instanceof PDFDropdown || field instanceof PDFOptionList || field instanceof PDFRadioGroup) {
-        field.select(toText(value));
+        try {
+          field.select(toText(value));
+        } catch {
+          // Ignore values that are not in the field option list.
+        }
       }
     }
 
-    const preferredFont = await loadPreferredFont(pdfDoc, options.fontsDir);
     if (preferredFont) {
       form.updateFieldAppearances(preferredFont);
     } else {
       form.updateFieldAppearances();
-    }
-
-    for (const field of fields) {
-      if (field instanceof PDFTextField) {
-        field.setFontSize(options.fontSize);
-      }
     }
 
     form.flatten();

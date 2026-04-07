@@ -669,26 +669,22 @@ toggleDynamicPDF(): void {
     if (!this.canGenerate()) return;
 
     this.isGenerating.set(true);
-      const csvFile = this.csvFile()!;
-      const pdfFile = this.pdfFile() ?? undefined;
-      this.defaultService.apiPdfPreviewFormPost(pdfFile, csvFile , 16).subscribe({
-        next: (blob: any) => {
-          const url = URL.createObjectURL(blob);
-          this.previewPdfUrl.set(url);
-          this.safePreviewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
-          this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
-          this.isGenerated.set(true);
-          this.isGenerating.set(false);
-          // const a = document.createElement('a');
-          // a.href = url;
-          // a.download = 'generated-output.pdf';
-          // a.click();
-        },
-        error: (err) => {
-          console.error('Generate PDF failed:', err);
-          this.isGenerating.set(false);
-          this.isGenerated.set(false);
-        },
-      });
+    const csvFile = this.csvFile()!;
+    const pdfFile = this.pdfFile() ?? undefined;
+    this.pdfService.generatePdf(csvFile, pdfFile, 16).subscribe({
+      next: (blob: Blob) => {
+        const url = URL.createObjectURL(blob);
+        this.previewPdfUrl.set(url);
+        this.safePreviewPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+        this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+        this.isGenerated.set(true);
+        this.isGenerating.set(false);
+      },
+      error: (err) => {
+        console.error('Generate PDF failed:', err);
+        this.isGenerating.set(false);
+        this.isGenerated.set(false);
+      },
+    });
   }
 }
