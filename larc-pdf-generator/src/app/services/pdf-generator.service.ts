@@ -6,7 +6,11 @@ import { Observable } from 'rxjs';
   providedIn: 'root',
 })
 export class PdfGeneratorService {
-  private readonly apiUrl = '/api/generate-pdf';
+  private readonly apiBaseUrl =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:3000'
+      : '';
+  private readonly apiUrl = `${this.apiBaseUrl}/api/pdf/preview-form`;
 
   constructor(private http: HttpClient) {}
 
@@ -18,7 +22,7 @@ export class PdfGeneratorService {
     formData.append('data', csvFile, csvFile.name);
     formData.append('fontSize', String(fontSize));
 
-    return this.http.post<Blob>('http://localhost:3000/api/pdf/preview-form', formData, {
+    return this.http.post<Blob>(this.apiUrl, formData, {
       responseType: 'blob' as 'json',
     });
   }
